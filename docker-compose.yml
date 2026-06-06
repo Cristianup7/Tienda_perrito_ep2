@@ -13,7 +13,7 @@ services:
     ports:
       - "3306:3306"
 
-  backend:
+backend:
     image: cristianup7/tienda-backend:latest
     container_name: tienda-backend
     environment:
@@ -28,12 +28,10 @@ services:
       - db
 
   frontend:
-    build:
-      image: cristianup7/tienda-frontend:latest
+    image: cristianup7/tienda-frontend:latest
+    container_name: tienda-frontend
     ports:
       - "80:8080"
-    depends_on:
-      - backend
 
 volumes:
   dbdata:
