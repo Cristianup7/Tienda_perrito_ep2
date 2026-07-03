@@ -305,11 +305,11 @@ resource "aws_ecs_task_definition" "backend" {
         protocol      = "tcp"
       }]
       environment = [
-        { name = "DB_HOST" value = aws_db_instance.main.address }
-        { name = "DB_USER" value = var.db_username }
-        { name = "DB_PASSWORD" value = var.db_password }
-        { name = "DB_NAME" value = var.db_name }
-        { name = "DB_PORT" value = "3306" }
+        { name = "DB_HOST", value = aws_db_instance.main.address },
+        { name = "DB_USER", value = var.db_username },
+        { name = "DB_PASSWORD", value = var.db_password },
+        { name = "DB_NAME", value = var.db_name },
+        { name = "DB_PORT", value = "3306" },
       ]
       logConfiguration = {
         logDriver = "awslogs"
@@ -344,7 +344,7 @@ resource "aws_ecs_task_definition" "frontend" {
         protocol      = "tcp"
       }]
       environment = [
-        { name = "BACKEND_HOST" value = "backend.${aws_service_discovery_private_dns_namespace.main.name}:3001" }
+        { name = "BACKEND_HOST", value = "backend.${aws_service_discovery_private_dns_namespace.main.name}:3001" },
       ]
       logConfiguration = {
         logDriver = "awslogs"
