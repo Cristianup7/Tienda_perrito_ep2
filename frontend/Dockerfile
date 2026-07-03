@@ -3,8 +3,8 @@ FROM nginxinc/nginx-unprivileged:alpine
 
 # Copiamos la plantilla de configuración de Nginx y el entrypoint
 COPY default.conf.template /etc/nginx/conf.d/default.conf.template
-COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+# set executable bit while copying to avoid build-time chmod as non-root user
+COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
 # Copiamos los archivos de la web
 COPY index.html /usr/share/nginx/html/
