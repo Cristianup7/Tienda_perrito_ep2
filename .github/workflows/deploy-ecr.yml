@@ -1,0 +1,79 @@
+name: Build and Push to ECR (AWS Academy)
+
+on:
+  push:
+    branches: ["main"]
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (session)
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Set AWS account env
+        run: echo "AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }}" >> $GITHUB_ENV
+
+      - name: Create ECR repos if missing
+        run: |
+          aws ecr describe-repositories --repository-names "${{ secrets.TF_VAR_ecr_backend_repo || 'perritos-backend' }}" >/dev/null 2>&1 || aws ecr create-repository --repository-name "${{ secrets.TF_VAR_ecr_backend_repo || 'perritos-backend' }}"
+          aws ecr describe-repositories --repository-names "${{ secrets.TF_VAR_ecr_frontend_repo || 'perritos-frontend' }}" >/dev/null 2>&1 || aws ecr create-repository --repository-name "${{ secrets.TF_VAR_ecr_frontend_repo || 'perritos-frontend' }}"
+
+      - name: Login to ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Build and push backend image
+        working-directory: backend
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.TF_VAR_ecr_backend_repo || 'perritos-backend' }}
+          IMAGE_TAG: ${GITHUB_SHA::8}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "BACKEND_IMAGE=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
+
+      - name: Build and push frontend image
+        working-directory: frontend
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ secrets.TF_VAR_ecr_frontend_repo || 'perritos-frontend' }}
+          IMAGE_TAG: ${GITHUB_SHA::8}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "FRONTEND_IMAGE=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_ENV
+
+      - name: Output pushed images
+        run: |
+          echo "Backend image: ${{ env.BACKEND_IMAGE }}"
+          echo "Frontend image: ${{ env.FRONTEND_IMAGE }}"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform apply
+        working-directory: terraform
+        env:
+          TF_VAR_backend_image: ${{ env.BACKEND_IMAGE }}
+          TF_VAR_frontend_image: ${{ env.FRONTEND_IMAGE }}
+          TF_VAR_db_password: ${{ secrets.TF_VAR_db_password }}
+        run: terraform apply -auto-approve

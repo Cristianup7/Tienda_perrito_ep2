@@ -1,0 +1,74 @@
+name: CI/CD - AWS ECS
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PROJECT_NAME: perritos-tienda
+  ECR_BACKEND_REPO: perritos-backend
+  ECR_FRONTEND_REPO: perritos-frontend
+
+jobs:
+  build-push-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v3
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Set AWS account variables
+        run: |
+          echo "AWS_ACCOUNT_ID=${{ secrets.AWS_ACCOUNT_ID }}" >> $GITHUB_ENV
+          echo "AWS_REGION=${{ secrets.AWS_REGION }}" >> $GITHUB_ENV
+          echo "TF_VAR_project_name=${{ secrets.TF_VAR_project_name || env.PROJECT_NAME }}" >> $GITHUB_ENV
+          echo "TF_VAR_ecr_backend_repo=${{ secrets.TF_VAR_ecr_backend_repo || env.ECR_BACKEND_REPO }}" >> $GITHUB_ENV
+          echo "TF_VAR_ecr_frontend_repo=${{ secrets.TF_VAR_ecr_frontend_repo || env.ECR_FRONTEND_REPO }}" >> $GITHUB_ENV
+
+      - name: Create ECR repositories if missing
+        run: |
+          aws ecr describe-repositories --repository-names "$ECR_BACKEND_REPO" >/dev/null 2>&1 || aws ecr create-repository --repository-name "$ECR_BACKEND_REPO"
+          aws ecr describe-repositories --repository-names "$ECR_FRONTEND_REPO" >/dev/null 2>&1 || aws ecr create-repository --repository-name "$ECR_FRONTEND_REPO"
+
+      - name: Login to Amazon ECR
+        run: |
+          aws ecr get-login-password | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com"
+
+      - name: Build and push backend image
+        run: |
+          BACKEND_IMAGE="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_BACKEND_REPO:${GITHUB_SHA::8}"
+          docker build -t "$BACKEND_IMAGE" backend
+          docker push "$BACKEND_IMAGE"
+          echo "BACKEND_IMAGE=$BACKEND_IMAGE" >> $GITHUB_ENV
+
+      - name: Build and push frontend image
+        run: |
+          FRONTEND_IMAGE="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/$ECR_FRONTEND_REPO:${GITHUB_SHA::8}"
+          docker build -t "$FRONTEND_IMAGE" frontend
+          docker push "$FRONTEND_IMAGE"
+          echo "FRONTEND_IMAGE=$FRONTEND_IMAGE" >> $GITHUB_ENV
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform init
+        working-directory: terraform
+        run: terraform init
+
+      - name: Terraform apply
+        working-directory: terraform
+        env:
+          TF_VAR_backend_image: ${{ env.BACKEND_IMAGE }}
+          TF_VAR_frontend_image: ${{ env.FRONTEND_IMAGE }}
+          TF_VAR_db_password: ${{ secrets.TF_VAR_db_password }}
+        run: terraform apply -auto-approve

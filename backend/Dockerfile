@@ -9,6 +9,7 @@ FROM node:18-alpine
 WORKDIR /app
 # Copiamos solo lo necesario de la etapa anterior
 COPY --from=builder /app/node_modules ./node_modules
+COPY package*.json ./
 COPY server.js ./
 
 # Aplicamos Principio de Mínimo Privilegio (Usuario node en vez de root)
