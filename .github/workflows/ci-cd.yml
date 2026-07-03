@@ -58,19 +58,4 @@ jobs:
           docker push "$FRONTEND_IMAGE"
           echo "FRONTEND_IMAGE=$FRONTEND_IMAGE" >> $GITHUB_ENV
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
-        with:
-          terraform_version: 1.6.0
-
-      - name: Terraform init
-        working-directory: terraform
-        run: terraform init
-
-      - name: Terraform apply
-        working-directory: terraform
-        env:
-          TF_VAR_backend_image: ${{ env.BACKEND_IMAGE }}
-          TF_VAR_frontend_image: ${{ env.FRONTEND_IMAGE }}
-          TF_VAR_db_password: ${{ secrets.TF_VAR_db_password }}
-        run: terraform apply -auto-approve
+      # Terraform steps removed — this workflow only builds and pushes images to ECR
