@@ -36,25 +36,26 @@ jobs:
         run: |
           aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 526992473234.dkr.ecr.us-east-1.amazonaws.com
 
-      - name: Build, tag, and push backend image to Amazon ECR
+      - name: Build and Push Backend
         run: |
-          REGISTRY="526992473234.dkr.ecr.us-east-1.amazonaws.com"
-          REPOSITORY="perritos-backend"
-          TAG="latest"
+          # Definición manual para evitar errores de variables vacías
+          ACCOUNT_ID="526992473234"
+          REGION="us-east-1"
+          REPO_NAME="perritos-backend"
+          FULL_IMAGE_NAME="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO_NAME:latest"
+          
+          docker build -t $FULL_IMAGE_NAME ./backend
+          docker push $FULL_IMAGE_NAME
 
-          docker build -t $REGISTRY/$REPOSITORY:$TAG ./backend
-          docker push $REGISTRY/$REPOSITORY:$TAG
-          echo "BACKEND_IMAGE=$REGISTRY/$REPOSITORY:$TAG" >> $GITHUB_ENV
-
-      - name: Build, tag, and push frontend image to Amazon ECR
+      - name: Build and Push Frontend
         run: |
-          REGISTRY="526992473234.dkr.ecr.us-east-1.amazonaws.com"
-          REPOSITORY="perritos-frontend"
-          TAG="latest"
-
-          docker build -t $REGISTRY/$REPOSITORY:$TAG ./frontend
-          docker push $REGISTRY/$REPOSITORY:$TAG
-          echo "FRONTEND_IMAGE=$REGISTRY/$REPOSITORY:$TAG" >> $GITHUB_ENV
+          ACCOUNT_ID="526992473234"
+          REGION="us-east-1"
+          REPO_NAME="perritos-frontend"
+          FULL_IMAGE_NAME="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO_NAME:latest"
+          
+          docker build -t $FULL_IMAGE_NAME ./frontend
+          docker push $FULL_IMAGE_NAME
 
       - name: Output pushed images
         run: |
