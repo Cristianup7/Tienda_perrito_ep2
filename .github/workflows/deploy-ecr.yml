@@ -33,34 +33,29 @@ jobs:
           aws ecr describe-repositories --repository-names "${{ secrets.TF_VAR_ecr_frontend_repo || 'perritos-frontend' }}" >/dev/null 2>&1 || aws ecr create-repository --repository-name "${{ secrets.TF_VAR_ecr_frontend_repo || 'perritos-frontend' }}"
 
       - name: Login to ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v1
-
-      - name: Build and push backend image
-        working-directory: backend
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ secrets.TF_VAR_ecr_backend_repo || 'perritos-backend' }}
         run: |
-          IMAGE_TAG=${GITHUB_SHA:0:8}
-          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
-          echo "Building $IMAGE_URI"
-          docker build -t "$IMAGE_URI" .
-          docker push "$IMAGE_URI"
-          echo "BACKEND_IMAGE=$IMAGE_URI" >> $GITHUB_ENV
+          aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 526992473234.dkr.ecr.us-east-1.amazonaws.com
 
-      - name: Build and push frontend image
-        working-directory: frontend
-        env:
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: ${{ secrets.TF_VAR_ecr_frontend_repo || 'perritos-frontend' }}
+      - name: Build and Push Backend
         run: |
-          IMAGE_TAG=${GITHUB_SHA:0:8}
-          IMAGE_URI="${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
-          echo "Building $IMAGE_URI"
-          docker build -t "$IMAGE_URI" .
-          docker push "$IMAGE_URI"
-          echo "FRONTEND_IMAGE=$IMAGE_URI" >> $GITHUB_ENV
+          # Definición manual para evitar errores de variables vacías
+          ACCOUNT_ID="526992473234"
+          REGION="us-east-1"
+          REPO_NAME="perritos-backend"
+          FULL_IMAGE_NAME="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO_NAME:latest"
+          
+          docker build -t $FULL_IMAGE_NAME ./backend
+          docker push $FULL_IMAGE_NAME
+
+      - name: Build and Push Frontend
+        run: |
+          ACCOUNT_ID="526992473234"
+          REGION="us-east-1"
+          REPO_NAME="perritos-frontend"
+          FULL_IMAGE_NAME="$ACCOUNT_ID.dkr.ecr.$REGION.amazonaws.com/$REPO_NAME:latest"
+          
+          docker build -t $FULL_IMAGE_NAME ./frontend
+          docker push $FULL_IMAGE_NAME
 
       - name: Output pushed images
         run: |
