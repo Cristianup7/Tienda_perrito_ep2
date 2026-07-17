@@ -1,19 +1,17 @@
-# ETAPA 1: Dependencias (Build)
-FROM node:18-alpine AS builder
+# syntax=docker/dockerfile:1.7
+
+FROM node:20-alpine AS deps
 WORKDIR /app
 COPY package*.json ./
-RUN npm install --production
+RUN npm install --omit=dev --no-audit --no-fund
 
-# ETAPA 2: Producción y Mínimo Privilegio
-FROM node:18-alpine
+FROM node:20-alpine AS runtime
+ENV NODE_ENV=production
 WORKDIR /app
-# Copiamos solo lo necesario de la etapa anterior
-COPY --from=builder /app/node_modules ./node_modules
+RUN addgroup -S app && adduser -S -G app app
+COPY --from=deps /app/node_modules ./node_modules
 COPY package*.json ./
 COPY server.js ./
-
-# Aplicamos Principio de Mínimo Privilegio (Usuario node en vez de root)
-USER node
-
+USER app
 EXPOSE 3001
 CMD ["npm", "start"]

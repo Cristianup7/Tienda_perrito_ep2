@@ -1,16 +1,13 @@
-﻿# ETAPA 1: Base
+﻿# syntax=docker/dockerfile:1.7
+
+FROM nginx:1.27-alpine AS build
+WORKDIR /usr/share/nginx/html
+COPY index.html app.js ./
+
 FROM nginxinc/nginx-unprivileged:alpine
-
-# Copiamos la plantilla de configuración de Nginx y el entrypoint
+COPY --from=build /usr/share/nginx/html/ /usr/share/nginx/html/
 COPY default.conf.template /etc/nginx/conf.d/default.conf.template
-# set executable bit while copying to avoid build-time chmod as non-root user
 COPY --chmod=0755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-
-# Copiamos los archivos de la web
-COPY index.html /usr/share/nginx/html/
-COPY app.js /usr/share/nginx/html/
-
-# Exponemos el puerto 8080
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["nginx", "-g", "daemon off;"]

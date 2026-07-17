@@ -1,21 +1,32 @@
-version: '3.8'
-
 services:
   db:
-    image: mysql:8
+    build:
+      context: ./db
+      dockerfile: Dockerfile
     container_name: tienda-db
     environment:
       MYSQL_ROOT_PASSWORD: admin123
       MYSQL_DATABASE: tienda_perritos
+      MYSQL_USER: alumno
+      MYSQL_PASSWORD: alumno123
     volumes:
       - dbdata:/var/lib/mysql
-      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
       - "3306:3306"
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-padmin123"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
 
   backend:
     build:
       context: ./backend
+      dockerfile: Dockerfile
     container_name: tienda-backend
     environment:
       DB_HOST: db
@@ -23,20 +34,35 @@ services:
       DB_PASSWORD: admin123
       DB_NAME: tienda_perritos
       DB_PORT: 3306
+      PORT: 3001
     ports:
       - "3001:3001"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
 
   frontend:
     build:
       context: ./frontend
+      dockerfile: Dockerfile
     container_name: tienda-frontend
+    environment:
+      BACKEND_HOST: backend:3001
     ports:
       - "80:8080"
     depends_on:
-      - backend
+      backend:
+        condition: service_started
+    networks:
+      - app-network
 
 volumes:
   dbdata:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge
 
