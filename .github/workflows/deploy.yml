@@ -48,20 +48,20 @@ jobs:
 
       - name: Desplegar backend en AWS ECS
         env:
-          ECS_CLUSTER: perritos-cluster
-          ECS_SERVICE: perritos-backend-service
+          ECS_CLUSTER: smart-gorilla-20mzfi
+          ECS_SERVICE: ${{ vars.ECS_BACKEND_SERVICE || 'perritos-backend-service' }}
         run: |
           aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" --force-new-deployment
 
       - name: Desplegar frontend en AWS ECS
         env:
-          ECS_CLUSTER: perritos-cluster
-          ECS_SERVICE: perritos-frontend-service
+          ECS_CLUSTER: smart-gorilla-20mzfi
+          ECS_SERVICE: ${{ vars.ECS_FRONTEND_SERVICE || 'perritos-frontend-service' }}
         run: |
           aws ecs update-service --cluster "$ECS_CLUSTER" --service "$ECS_SERVICE" --force-new-deployment
 
       - name: Verificar estado del despliegue
         env:
-          ECS_CLUSTER: perritos-cluster
+          ECS_CLUSTER: smart-gorilla-20mzfi
         run: |
-          aws ecs describe-services --cluster "$ECS_CLUSTER" --services perritos-backend-service perritos-frontend-service --query 'services[].{service:serviceName,status:status,events:events[0].message}' --output table
+          aws ecs describe-services --cluster "$ECS_CLUSTER" --services "${{ vars.ECS_BACKEND_SERVICE || 'perritos-backend-service' }}" "${{ vars.ECS_FRONTEND_SERVICE || 'perritos-frontend-service' }}" --query 'services[].{service:serviceName,status:status,events:events[0].message}' --output table
